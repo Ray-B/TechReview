@@ -17,11 +17,11 @@ BASE_URL = "https://www.ncei.noaa.gov/pub/data/ghcn/daily"
 
 # Station IDs to fetch observation files for. This is download-scoping only.
 TARGET_STATION_IDS = [
-    "CA006158731",  # Toronto Pearson Intl A
-    "CA007025251",  # Montreal Intl A (Trudeau)
-    "CA001108395",  # Vancouver Intl A (YVR)
-    "CA003031092",  # Calgary Intl A (YYC)
-    "CA006106001",  # Ottawa Macdonald-Cartier Intl
+    "CAN06158731",  # Toronto Pearson Intl A
+    "CAN07025251",  # Montreal Intl A (Trudeau)
+    "CAN01108395",  # Vancouver Intl A (YVR)
+    "CAN03031092",  # Calgary Intl A (YYC)
+    "CAN06106001",  # Ottawa Macdonald-Cartier Intl
 ]
 
 REFERENCE_FILES = [
