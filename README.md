@@ -4,6 +4,8 @@ Local pipeline that ingests NOAA GHCN-Daily observations for airport
 stations in Canada's 5 largest metro areas, transforms them with dbt on
 DuckDB, and generates AI daily weather narratives with Gemini.
 
+## Important Developers Note: SEE "Updated Tests" for new tests and reasoning.
+
 ## Setup
 
 ```bash
@@ -127,3 +129,37 @@ narrative_pipeline/     Gemini-based narrative generation
 scripts/run_pipeline.sh end-to-end runner
 data/raw/               downloaded files (gitignored, populated by ingestion/)
 ```
+
+
+## Updated Tests
+
+1. assert_mart_values_match_noaa_units.sql
+
+**What it does**
+This test is designed to protect against incorrect units ultimately reaching merchants. It checks every temperature, precipitation, snowfall and snow-depth value in fct_daily_weather against NOAA's raw value multiplied by the scale NOAA documents for that measurement (tenths for temperature and precipitation, whole millimetres for snow). It should catch conversion bugs in our code and format changes on NOAA's side. Wind is left out because none of the five stations reports it, but future iterations of this project should consider expanding to include this.
+
+**What happens when it fails"**
+
+I've set the severity for this test to be an actual blocking error. The dbt build will fail and the pipeline will stop before the narrative step. We should also see each data for each failure: the mismatched value with the raw value, the expected value and the stored value.
+
+**Who should be told**: A developer on the data engineering team should be notified, and someone from the product team as well since this might mean narratives not being deliver to customers ultimately. This could pump data over to something like prometheus or datadog and show up in a dashboard.
+
+**Example Results on Failure** 
+FAIL, 1,103 rows. All are snowfall (414) and snow depth (689); temperature and precipitation pass. Example: Montreal, 16 February 2025, raw snowfall 368 mm, stored as 36.8. The cause is stg_observations.sql, which divides every measurement by 10. I have left that code unchanged, as the brief asks; changing that one line to skip the division for SNOW and SNWD makes the test pass.
+
+2. assert_every_station_has_every_day
+
+**What it does** 
+
+This works to try an detect when a station's data is going stale and tried to prevent situations where there are data gaps that go undetected. It builds a calendar of every day in the configured window (start_date to end_date in dbt_project.yml) and lists each target station's missing days in fct_daily_weather.
+
+**What happens when it fails** 
+
+I've set this to a WARN, simply because I wouldn't be shocked if sometimes we have gaps in our data vendor (NOAA in this case, but could be environment canada too). Instead, it has two levels. With 1 to 30 missing station-days it warns: the build continues and the missing days are listed. With more than 30, about a month of silence from one station, it will FAIL.
+
+**Who should be told**
+
+A developer on the data engineering team should be notified at a minimum, but if other team who are invested want to know, this could pump data over to something like prometheus or datadog and show up in a dashboard too.
+
+**Example Results on Failure**
+WARN, 9 missing station-days (Montreal 4, Vancouver 4, Ottawa 1). To see the error level, run with a window that extends past the data, which simulates feeds that have gone silent: dbt test --select assert_every_station_has_every_day --vars '{end_date: "2026-12-31"}' gives FAIL 1,834.
